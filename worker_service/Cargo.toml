@@ -1,0 +1,20 @@
+[package]
+name = "worker_service"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { version = "1", features = ["full"] }
+diesel = { version = "2.0", features = ["postgres"] }
+amq-protocol = "8.1.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+common_lib = { path = "../common_lib" }
+actix-web = "4"
+dotenv = "0.15" # For loading environment variables
+sqlx = { version = "0.8.3", features = ["postgres", "runtime-tokio-native-tls"] } # Async PostgreSQL driver
+async-trait = "0.1"
+thiserror = "2.0.12"
+lapin = "2.5.1"
+tokio-executor-trait = "2.1.3" # or the latest version
+tokio-amqp = "2.0.0" # or the latest version
