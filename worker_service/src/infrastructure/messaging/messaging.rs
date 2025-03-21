@@ -1,9 +1,6 @@
-use std::env::consts::ARCH;
 use std::sync::Arc;
-use amq_protocol::protocol::channel;
-use lapin::Queue;
+use std::time::{self, SystemTime};
 use tokio::sync::Mutex;
-
 use async_trait::async_trait;
 use thiserror::Error;
 use lapin::{Connection, ConnectionProperties, options::*, types::FieldTable, BasicProperties, ExchangeKind};
@@ -31,9 +28,10 @@ pub enum MessagingError {
 
 #[async_trait]
 pub trait MessagingI {
-    async fn publish(&self, message: &String) -> Result<(), MessagingError>;
+    async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError>;
     async fn consume(&self, queue: &str) -> Result<(), MessagingError>;
     async fn create_exchange(&self, name: &str) -> Result<(), MessagingError>;
+    async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>;
 }
 
 pub struct Messaging {
@@ -58,11 +56,10 @@ impl Messaging {
 #[async_trait]
 impl MessagingI for Messaging {
     async fn create_exchange(&self, name: &str) -> Result<(), MessagingError> {  
-        // acquiring channel from pool      
-        let get_channel = self.channel_pool.borrow_channel(&self.conn, "create_exchange").await;
-        let _ = get_channel.as_ref().map_err(|err| {err});
-        let channel = get_channel.unwrap();
-
+        let channel: lapin::Channel = self
+        .channel_pool
+        .borrow_channel(&mut self.conn.clone()).await.map_err(|err| {err})?;
+    
         let _ = channel
         .exchange_declare(
             &name,
@@ -70,42 +67,52 @@ impl MessagingI for Messaging {
             ExchangeDeclareOptions::default(),
             FieldTable::default(),
         )
-        .await.map_err(|err| MessagingError::Other(err.to_string()));
+        .await
+        .map_err(MessagingError::LapinError)?;
 
-        let _ = channel.queue_declare("my_queue", QueueDeclareOptions::default(), FieldTable::default()).await.map_err(|err| MessagingError::Other(err.to_string()));
-        channel
+        self.channel_pool.return_channel(channel).await?;
+        Ok(())
+    }
+
+    async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>{
+        let channel: lapin::Channel = self.channel_pool.borrow_channel(&mut self.conn.clone()).await.map_err(|err| {err})?;
+        let _ = channel.queue_declare(&name, QueueDeclareOptions::default(), FieldTable::default()).await.map_err(|err| {err});
+
+        let _ =channel
         .queue_bind(
-            "my_queue",
             &name,
-            "my_routing_key", // Use a specific routing key
+            &bind_to,
+            &routing_key,
             QueueBindOptions::default(),
             FieldTable::default(),
         )
         .await
         .map_err(MessagingError::LapinError)?;
 
+        self.channel_pool.return_channel(channel).await?;
         Ok(())
     }
 
 
-     async fn publish(&self, message: &String) -> Result<(), MessagingError> {
-        let channel = self.channel_pool.borrow_channel(&self.conn, "publish").await.unwrap();
+     async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError> {
+        let channel = self.channel_pool.borrow_channel(&self.conn).await.unwrap();
         channel.clone().basic_publish(
-                "logs_exchange",
-                "my_routing_key",
+                &exchange_name,
+                &routing_key,
                 BasicPublishOptions::default(),
                 message.as_bytes(),
                 BasicProperties::default(),
             )
             .await
             .map_err(MessagingError::LapinError)?;
+        
         self.channel_pool.return_channel(channel).await?;
         Ok(())
     }
 
     async fn consume(&self, queue: &str) -> Result<(), MessagingError> {
         let channel = self.conn.lock().await.create_channel().await.map_err(MessagingError::LapinError).unwrap();
-        channel.basic_consume("my_queue", "test", BasicConsumeOptions::default(), FieldTable::default()).await?.set_delegate(Consumer{});     
+        channel.basic_consume("jobs_queue", "test", BasicConsumeOptions::default(), FieldTable::default()).await?.set_delegate(Consumer{});     
         Ok(())
     }
 }

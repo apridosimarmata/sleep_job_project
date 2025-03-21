@@ -1,65 +1,82 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 use lapin::{Channel, Connection};
 use crate::infrastructure::messaging::messaging::MessagingError;
 use tokio::sync::{Mutex, Semaphore};
 
 
 pub trait ChannelPoolI {
-    async fn borrow_channel(&self, conn: &Arc<Mutex<Connection>>, ivkr: &str) -> Result<Channel, MessagingError>;
+    async fn borrow_channel(&self, conn: &Arc<Mutex<Connection>>) -> Result<Channel, MessagingError>;
     async fn return_channel(&self, chan: Channel) -> Result<(), MessagingError>;
 }
 
 pub struct ChannelPool {
-    channels : Box<Mutex<Vec<Channel>>>,
+    channels : Arc<Mutex<Vec<Channel>>>,
     max_channel: usize,
-    semaphore: Semaphore,
+    borrower_mutex: Semaphore,
+    no_of_channels_created:Mutex<usize>,
+
 }
 
 impl ChannelPool {
     pub async fn new(no_of_channel: usize) -> Self {
-        let semaphore = Semaphore::new(no_of_channel); 
+        let borrower_mutex = Semaphore::new(1); 
+
         ChannelPool{
-            channels: Box::new(Mutex::new(Vec::new())),
             max_channel: no_of_channel,
-            semaphore: semaphore,
+            borrower_mutex: borrower_mutex,
+            no_of_channels_created: Mutex::new(0),
+            channels: Arc::new(Mutex::new(Vec::new())),
         }
     }
 }
 
 impl ChannelPoolI for ChannelPool {
-    async fn borrow_channel(&self, conn: &Arc<Mutex<Connection>>, ivkr: &str) -> Result<Channel, MessagingError>{
-        // this semaphore makes sure there are only max n threads are using n channel
-        // where n is max no. of channel.
-        let _ = self.semaphore.acquire().await.unwrap();
-        let mut chan = self.channels.lock().await;
+    async fn borrow_channel(&self, conn: &Arc<Mutex<Connection>>) -> Result<Channel, MessagingError>{  
+        let _permit = self.borrower_mutex.acquire().await;
+        println!("borrower_enter");
 
-        if let Some(channel) = chan.pop(){
+        let mut channels_guard = self.channels.lock().await; // wait for channels lock
+        let mut created_channel_count =  self.no_of_channels_created.lock().await; // get latest channel count
+
+        if channels_guard.len() > 0 {
+            let mut channel = channels_guard.pop().unwrap();
+            if channel.status().closing(){
+                channel = conn.clone().lock().await.create_channel().await.unwrap();
+            }
             Ok(channel)
-        }else if chan.len() < self.max_channel {
-            println!("creating channel: {}", ivkr);
-            // drop chan to allow other thread to modify it.
-            drop(chan);
-            // when channel is not max yet.
-            // no longer needed since we creating a new channel
-            let clone_conn = conn.clone();
-            let new_channel = clone_conn.lock().await.create_channel().await.unwrap();
+        }else if channels_guard.clone().len() < self.max_channel &&  *created_channel_count < self.max_channel {
+            /* allows another thread to return channel */
+            drop(channels_guard);
+
+            let new_channel = conn.clone().lock().await.create_channel().await.unwrap();
+            *created_channel_count +=1;
             Ok(new_channel)
         }else{
+            /* allows another thread to return channel */
+            drop(channels_guard);
+
+            /* wait for channel availability */
             loop {
-                if let Some(channel) = chan.pop() {
-                    return Ok(channel);
+                let channels_guard = self.channels.lock().await;
+                if channels_guard.len() > 0  {
+                    break;
                 }
-                std::thread::sleep(std::time::Duration::from_millis(100));
             }
+
+            /* take channel */
+            let mut channels_guard = self.channels.lock().await;
+            let mut channel = channels_guard.pop().unwrap();
+
+            if channel.status().closing(){
+                channel = conn.clone().lock().await.create_channel().await.unwrap();
+            }
+            Ok(channel)
         }
     }
 
-    async fn return_channel(&self, chan: Channel) -> Result<(), MessagingError>{
-        // put back the channel
-        self.channels.lock().await.push(chan);
-
-        // indicates a channel is returned and allows waiting thread (if any) to use it.
-        self.semaphore.add_permits(1);
+    async fn return_channel(&self, chan: Channel) -> Result<(), MessagingError> {
+        let mut channels_guard = self.channels.lock().await;
+        channels_guard.push(chan);
         Ok(())
     }
 

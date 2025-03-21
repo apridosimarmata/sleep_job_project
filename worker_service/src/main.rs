@@ -17,7 +17,7 @@ async fn main() -> std::io::Result<()> {
 
     let q =  queues.await;
     let _ = q.consume("queue").await;
-    let _ = q.consume("queue_2").await;
+    let _ = q.consume("jobs_queue").await;
 
 
 

@@ -5,6 +5,7 @@ use crate::domain::dto::job_dto::*;
 use crate::domain::model::job_model::JobModel;
 use crate::domain::usecase::job::{JobUsecaseImpl, JobUsecase};
 use crate::domain::repository::job::JobRepository;
+use crate::infrastructure::messaging::messaging::MessagingI;
 
 impl JobUsecase for JobUsecaseImpl {
     async fn create_job(&self, req: JobRequestDTO) -> HTTPResponder<JobResponseDTO> {
@@ -25,8 +26,17 @@ impl JobUsecase for JobUsecaseImpl {
             },
         ).await {
             Ok(id) => id,
-            Err(err) => return HTTPResponder::BadRequest(err.message),
+            Err(err) => return HTTPResponder::InternalServerError(err.message),
         };
+
+        // publish job
+        let result = self.messaging.publish("from_usecase", "jobs_exchange", "jobs.created")
+        .await.map_err(|err| err.to_string());
+        match  result {
+            Ok(_) => {},
+            Err(err) => return HTTPResponder::InternalServerError(err), 
+            
+        }
 
         let _ = match self.repositories.job_repository.update_job(
             &mut tx,
@@ -40,7 +50,7 @@ impl JobUsecase for JobUsecaseImpl {
             },
         ).await {
             Ok(id) => id,
-            Err(err) => return HTTPResponder::BadRequest(err.message),
+            Err(err) => return HTTPResponder::InternalServerError(err.message),
         };
 
         match tx.commit().await {

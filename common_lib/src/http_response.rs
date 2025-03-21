@@ -15,6 +15,7 @@ pub struct CustomHTTPError {
 pub enum HTTPResponder<T: Serialize> {
     Ok(T),
     BadRequest(String),
+    InternalServerError(String)
 }
 
 impl<T: Serialize> Responder for HTTPResponder<T> {
@@ -24,6 +25,7 @@ impl<T: Serialize> Responder for HTTPResponder<T> {
         match self {
             HTTPResponder::Ok(data) => HttpResponse::Ok().json(CustomHTTPResponse { data }),
             HTTPResponder::BadRequest(msg) => HttpResponse::BadRequest().json(CustomHTTPError { error: msg }),
+            HTTPResponder::InternalServerError(msg) => HttpResponse::InternalServerError().json(CustomHTTPError {error: msg})
         }
     }
 }

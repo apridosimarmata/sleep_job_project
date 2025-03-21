@@ -1,14 +1,8 @@
 use lapin::ConsumerDelegate;
-use lapin::{
-    Queue, options::BasicAckOptions
-};
-use tokio_amqp::*;
-use tokio::net::TcpStream;
-use tokio::sync::Mutex;
+use lapin::options::BasicAckOptions;
 use std::future;
 use std::pin::Pin;
-use std::sync::Arc;
-use lapin::message::{Delivery, DeliveryResult};
+use lapin::message::DeliveryResult;
 
 pub struct Consumer {
 }
