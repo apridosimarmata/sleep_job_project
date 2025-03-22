@@ -1,4 +1,4 @@
 #[derive(Clone)] 
 pub struct UsecasesWrapper {
-    pub job_usecases: crate::domain::usecase::job::JobWorkerUsecaseImpl,
+    pub job_usecases: crate::app::job::usecase::job::JobWorkerUsecaseImpl,
 }

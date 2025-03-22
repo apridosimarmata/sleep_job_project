@@ -1,14 +1,19 @@
-use common_lib::http_response::HTTPResponder;
+use std::sync::{Arc};
 
-use crate::domain::dto::job_dto::*;
+use common_lib::message::message::JobCreationRequest;
+use tokio::sync::{Mutex};
 
-use crate::domain::model::job_model::JobModel;
-use crate::domain::usecase::job::{JobWorkerUsecaseImpl, JobWorkerUsecase};
-use crate::domain::repository::job::JobRepository;
+use crate::{domain::{repository::repositories::RepositoriesWrapper, usecase::job::JobWorkerUsecase}, infrastructure::messaging::{consumer::WorkerUsecase, messaging::MessagingError}};
 
+#[derive(Clone)]
+pub struct JobWorkerUsecaseImpl{
+    pub repositories: Arc<Mutex<RepositoriesWrapper>>,
+}
+
+#[async_trait::async_trait]
 impl JobWorkerUsecase for JobWorkerUsecaseImpl {
-    async fn consume_job_request(&self, req:JobRequestDTO) -> HTTPResponder<JobResponseDTO>{
-        HTTPResponder::Ok(JobResponseDTO { success: true, message: Some("ok".to_string()) })
+    async fn consume_job_request(&self, req:JobCreationRequest) -> Result<(), MessagingError>{
+        dbg!(req);
+        Ok(())
     }
-
 }

@@ -1,4 +1,4 @@
-use std::{rc::Rc, sync::Arc};
+use std::{borrow::Borrow, rc::Rc, sync::Arc};
 use lapin::{Channel, Connection};
 use crate::infrastructure::messaging::messaging::MessagingError;
 use tokio::sync::{Mutex, Semaphore};
@@ -33,7 +33,6 @@ impl ChannelPool {
 impl ChannelPoolI for ChannelPool {
     async fn borrow_channel(&self, conn: &Arc<Mutex<Connection>>) -> Result<Channel, MessagingError>{  
         let _permit = self.borrower_mutex.acquire().await;
-        println!("borrower_enter");
 
         let mut channels_guard = self.channels.lock().await; // wait for channels lock
         let mut created_channel_count =  self.no_of_channels_created.lock().await; // get latest channel count
@@ -47,7 +46,7 @@ impl ChannelPoolI for ChannelPool {
         }else if channels_guard.clone().len() < self.max_channel &&  *created_channel_count < self.max_channel {
             /* allows another thread to return channel */
             drop(channels_guard);
-
+            
             let new_channel = conn.clone().lock().await.create_channel().await.unwrap();
             *created_channel_count +=1;
             Ok(new_channel)
