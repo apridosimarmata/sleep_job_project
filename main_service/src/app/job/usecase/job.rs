@@ -1,9 +1,7 @@
+use chrono::{DateTime, Utc};
 use common_lib::http_response::HTTPResponder;
 use common_lib::message::message::JobCreationRequest;
-use serde::Serialize;
-
 use crate::domain::dto::job_dto::*;
-
 use crate::domain::model::job_model::JobModel;
 use crate::domain::usecase::job::{JobUsecaseImpl, JobUsecase};
 use crate::domain::repository::job::JobRepository;
@@ -17,6 +15,9 @@ impl JobUsecase for JobUsecaseImpl {
             Err(err) => return HTTPResponder::BadRequest(err.message),
         };
 
+        let now_utc: DateTime<Utc> = Utc::now();
+        let now_second = now_utc.timestamp();
+
         let job_id = match self.repositories.job_repository.create_job(
             &mut tx,
             JobModel {
@@ -24,8 +25,8 @@ impl JobUsecase for JobUsecaseImpl {
                 n: req.n,
                 id: 0,
                 status: "PROCESSING".to_string(),
-                created_at: 1,
-                finishes_at: 1,
+                created_at: now_second,
+                finishes_at: 0,
             },
         ).await {
             Ok(id) => id,

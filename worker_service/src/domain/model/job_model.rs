@@ -9,3 +9,9 @@ pub struct JobModel {
     pub status: String,
     pub finishes_at: i64,
 }
+
+pub struct UpdateJobStatusModel {
+    pub id: i64,
+    pub status: String,
+    pub finishes_at: i64,
+}

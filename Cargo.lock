@@ -3845,6 +3845,7 @@ dependencies = [
  "actix-web",
  "amq-protocol 8.1.0",
  "async-trait",
+ "chrono",
  "common_lib",
  "diesel",
  "dotenv",

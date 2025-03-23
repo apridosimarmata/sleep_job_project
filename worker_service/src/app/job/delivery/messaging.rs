@@ -1,8 +1,6 @@
+use std::{pin::Pin, sync::Arc};
 
-
-use std::{future, ops::Deref, pin::Pin, sync::Arc};
-
-use lapin::{message::DeliveryResult, options::{BasicAckOptions, BasicConsumeOptions}, types::FieldTable, Connection, ConsumerDelegate};
+use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
 use crate::{app::job::usecase::job::JobWorkerUsecaseImpl, domain::usecase::job::JobWorkerUsecase, infrastructure::messaging::messaging::MessagingError};
 use common_lib::message::message::JobCreationRequest;
 pub trait JobMessagingHandler  {
@@ -58,8 +56,11 @@ impl <'a> ConsumerDelegate for JobConsumer{
                     let payload = String::from_utf8_lossy(&delivery.data);
                     let req:Result<JobCreationRequest, serde_json::Error> = serde_json::from_str(format!("{}", payload).as_str());
                     
-                    usecase_clone.consume_job_request(req.unwrap()).await;
-                    delivery.ack(lapin::options::BasicAckOptions::default()).await.expect("ack");
+                    let result = usecase_clone.consume_job_request(req.unwrap()).await;
+                    match result {
+                        Ok(_) => delivery.ack(lapin::options::BasicAckOptions::default()).await.expect("ack"),
+                        Err(_) => delivery.nack(lapin::options::BasicNackOptions::default()).await.expect("nack")
+                    }                    
                 }
                 Ok(None) => println!("Consumer ended"),
                 Err(e) => eprintln!("Delivery error: {}", e),

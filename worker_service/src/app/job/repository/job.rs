@@ -2,7 +2,7 @@ use common_lib::error::Err;
 use sqlx::{Postgres, Transaction};
 
 use crate::domain::{
-    model::job_model::JobModel,
+    model::job_model::{JobModel, UpdateJobStatusModel},
     repository::job::{JobRepository, JobRepositoryImpl},
 };
 
@@ -18,19 +18,13 @@ impl JobRepository for JobRepositoryImpl {
         )
     }
 
-    async fn update_job<'a>(&self, tx: &mut Transaction<'a, Postgres>, req: JobModel) -> Result<i64, Err> {
+    async fn update_job<'a>(&self, tx: &mut Transaction<'a, Postgres>, req: UpdateJobStatusModel) -> Result<i64, Err> {
         print!("called {}", req.id);
         let row = sqlx::query!(
             "UPDATE ms_jobs SET
-                n = $1,
-                email = $2,
-                created_at = $3,
-                status = $4,
-                finishes_at = $5
-            WHERE id = $6", // Use RETURNING to get the inserted ID
-            req.n,
-            &req.email,
-            req.created_at,
+                status = $1,
+                finishes_at = $2
+            WHERE id = $3", // Use RETURNING to get the inserted ID
             &req.status,
             req.finishes_at,
             req.id
