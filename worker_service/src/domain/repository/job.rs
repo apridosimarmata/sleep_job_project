@@ -1,6 +1,6 @@
 use sqlx::{Pool, Postgres, Transaction};
 use common_lib::error::Err;
-use crate::domain::model::job_model::{JobModel, UpdateJobStatusModel};
+use crate::domain::model::job_model::UpdateJobStatusModel;
 
 pub trait JobRepository {
     async fn get_tx(&self) -> Result<sqlx::PgTransaction, Err>;

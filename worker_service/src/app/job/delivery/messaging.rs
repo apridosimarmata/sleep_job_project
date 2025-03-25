@@ -2,7 +2,7 @@ use std::{pin::Pin, sync::{Arc}};
 
 use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
 use tokio::sync::Mutex;
-use crate::{app::job::usecase::job::JobWorkerUsecaseImpl, domain::usecase::job::JobWorkerUsecase, infrastructure::messaging::messaging::{Messaging, MessagingError}, main};
+use crate::{app::job::usecase::job::JobWorkerUsecaseImpl, domain::usecase::job::JobWorkerUsecase, infrastructure::messaging::messaging::MessagingError};
 use common_lib::message::message::JobCreationRequest;
 
 

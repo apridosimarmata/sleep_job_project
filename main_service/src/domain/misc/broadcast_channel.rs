@@ -1,5 +1,4 @@
-use common_lib::message::message::{JobCreationRequest, JobUpdate};
-use futures::sink::Send;
+use common_lib::message::message::JobUpdate;
 use tokio::sync::broadcast::{channel, Receiver, Sender};
 
 
@@ -10,7 +9,7 @@ pub struct JobProggressBroadcaster {
 
 impl <'a> JobProggressBroadcaster{
     pub fn new() -> Self {
-        let (tx, mut rx) : (Sender<JobUpdate>, Receiver<JobUpdate>)  = channel(100);
+        let (tx, rx) : (Sender<JobUpdate>, Receiver<JobUpdate>)  = channel(100);
         JobProggressBroadcaster { 
             tx:tx,
             rx:rx,

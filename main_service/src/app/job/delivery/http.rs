@@ -1,18 +1,14 @@
 use std::convert::Infallible;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
-use actix_web::web::{put, ServiceConfig};
-use actix_web::{web, Responder};
-use actix_web_lab::sse::{self, Data, Event, Sse };
-use common_lib::http_response::HTTPResponder;
-use futures::{SinkExt, StreamExt};
+use actix_web::web::ServiceConfig;
+use actix_web::web;
+use actix_web_lab::sse::{self, Event };
 use tokio::sync::mpsc::{channel, Receiver, Sender};
-use crate::domain::dto::job_dto::{JobRequestDTO, JobResponseDTO};
+use crate::domain::dto::job_dto::JobRequestDTO;
 use crate::domain::usecase::job::{JobUsecase, JobUsecaseImpl};
 use crate::domain::usecase::usecases::UsecasesWrapper;
-use std::collections::VecDeque;
 use tokio_stream::wrappers::ReceiverStream;
 
 

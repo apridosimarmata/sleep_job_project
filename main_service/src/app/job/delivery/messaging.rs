@@ -2,9 +2,9 @@ use std::{pin::Pin, sync::Arc};
 
 use common_lib::message::message::JobUpdate;
 use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
-use tokio::{spawn, sync::Mutex};
+use tokio::sync::Mutex;
 
-use crate::{domain::{misc::broadcast_channel::JobProggressBroadcaster, usecase::{job::{JobUsecase, JobUsecaseImpl}, usecases::UsecasesWrapper}}, infrastructure::messaging::messaging::MessagingError};
+use crate::{domain::usecase::{job::{JobUsecase, JobUsecaseImpl}, usecases::UsecasesWrapper}, infrastructure::messaging::messaging::MessagingError};
 
 pub trait JobMessagingHandler  {
     async fn listen(&self) -> Result<(), MessagingError>;

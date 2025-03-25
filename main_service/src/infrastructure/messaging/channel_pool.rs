@@ -1,4 +1,4 @@
-use std::{borrow::Borrow, rc::Rc, sync::Arc};
+use std::sync::Arc;
 use lapin::{Channel, Connection};
 use crate::infrastructure::messaging::messaging::MessagingError;
 use tokio::sync::{Mutex, Semaphore};

@@ -2,7 +2,7 @@ use common_lib::error::Err;
 use sqlx::{Postgres, Transaction};
 
 use crate::domain::{
-    model::job_model::{JobModel, UpdateJobStatusModel},
+    model::job_model::UpdateJobStatusModel,
     repository::job::{JobRepository, JobRepositoryImpl},
 };
 

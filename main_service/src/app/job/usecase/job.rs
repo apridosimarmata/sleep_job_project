@@ -1,13 +1,12 @@
 use std::convert::Infallible;
 use std::sync::Arc;
-use std::thread;
 use std::time::Duration;
 
 use actix_web_lab::sse::{self, Event};
 use chrono::{DateTime, Utc};
 use common_lib::http_response::HTTPResponder;
 use common_lib::message::message::{JobCreationRequest, JobUpdate};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 use crate::domain::dto::job_dto::*;
 use crate::domain::model::job_model::JobModel;
 use crate::domain::usecase::job::{JobUsecaseImpl, JobUsecase};

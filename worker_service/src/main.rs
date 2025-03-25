@@ -8,7 +8,7 @@ use std::sync::Arc;
 use app::job::delivery::messaging::{JobMessagingHandler, JobMessagingHandlerImpl};
 use app::job::usecase::job::JobWorkerUsecaseImpl;
 use domain::repository::job::JobRepositoryImpl;
-use domain::repository::repositories::{self, RepositoriesWrapper};
+use domain::repository::repositories::{RepositoriesWrapper};
 use domain::usecase::usecases::UsecasesWrapper;
 use tokio::signal;
 use infrastructure::messaging::messaging::Messaging;

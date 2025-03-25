@@ -4,10 +4,9 @@ use std::sync::Arc;
 use crate::domain::misc::broadcast_channel::JobProggressBroadcaster;
 use crate::domain::repository::repositories::RepositoriesWrapper;
 use actix_web_lab::sse::Event;
-use common_lib::error::Err;
 use common_lib::http_response::HTTPResponder;
 use common_lib::message::message::JobUpdate;
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::mpsc::Sender;
 use crate::domain::dto::job_dto::*;
 use crate::infrastructure::messaging::messaging::{Messaging, MessagingError};
 

@@ -31,7 +31,7 @@ async fn main() -> std::io::Result<()> {
     };
 
     let job_progress_channel: Arc<JobProggressBroadcaster> = Arc::new(JobProggressBroadcaster::new());
-    let mut clone = job_progress_channel.clone();
+    let clone = job_progress_channel.clone();
     tokio::spawn(async move {
        let mut new = job_progress_channel.rx.resubscribe();
        loop {

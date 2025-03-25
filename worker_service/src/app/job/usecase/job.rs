@@ -1,8 +1,7 @@
-use std::{sync::Arc, thread::sleep, time::{ Duration, SystemTime, UNIX_EPOCH}};
+use std::{sync::Arc, thread::sleep, time::Duration};
 
 use chrono::{DateTime, Utc};
 use common_lib::message::message::{JobCreationRequest, JobUpdate};
-use tokio::sync::Mutex;
 
 use crate::{domain::{model::job_model::UpdateJobStatusModel, repository::{job::JobRepository, repositories::RepositoriesWrapper}, usecase::job::JobWorkerUsecase}, infrastructure::messaging::messaging::{Messaging, MessagingError, MessagingI}};
 
@@ -62,7 +61,7 @@ impl JobWorkerUsecase for JobWorkerUsecaseImpl {
 
     dbg!(req);
 
-    let res = self.messaging.publish(&payload, "jobs_exchange", "jobs.status").await.map_err(|err|{
+    let _ = self.messaging.publish(&payload, "jobs_exchange", "jobs.status").await.map_err(|err|{
         dbg!(err)
     }).unwrap();
 
