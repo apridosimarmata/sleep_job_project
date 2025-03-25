@@ -54,7 +54,7 @@ impl JobWorkerUsecase for JobWorkerUsecaseImpl {
     /* notify main service */
     let req = JobUpdate{
         job_id: req.job_id,
-        status: &"completed"
+        status: "completed".to_string()
     };
     let payload = serde_json::to_string(&req).map_err(|err| {
         return MessagingError::Other(err.to_string())

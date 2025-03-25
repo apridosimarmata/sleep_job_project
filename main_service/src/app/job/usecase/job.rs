@@ -25,20 +25,27 @@ impl <'a> JobUsecase<'a> for JobUsecaseImpl{
 
     async fn stream_jobs(&self, tx : &Sender< Result<Event, Infallible>>){
         let clone = Arc::new(tx.clone());
+        let mut progress_subscriber = self.progress_channel.rx.resubscribe();
         tokio::spawn( async move {
-            let mut ctr = 0;
             loop {
-                let dummy = Event::Data(
-                    sse::Data::new(format!("{}", ctr).as_str()),
-                );
-                let x = Ok::<_, Infallible>(dummy);
-
-                match clone.send(x).await {
-                    Ok(_) => {},
-                    Err(_) =>{}
-                } ;
+              match progress_subscriber.recv().await {
+                    Ok(val) => {
+                        let data = Event::Data(
+                            sse::Data::new(format!("job {} updated, status {}", val.job_id, val.status).as_str()),
+                        );
+                        let x = Ok::<_, Infallible>(data);
+                        match clone.send(x).await {
+                            Ok(_) => {},
+                            Err(_) =>{}
+                        } ;
+                    },
+                    Err(err) => {
+                        println!("got error on job progress subscriber: {}", err.to_string())
+                    }
+                };
+                 
                 tokio::time::sleep(Duration::from_secs(2)).await;
-                ctr+=1;
+
             }
         });
     }
