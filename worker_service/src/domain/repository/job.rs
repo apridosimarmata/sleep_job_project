@@ -4,7 +4,6 @@ use crate::domain::model::job_model::{JobModel, UpdateJobStatusModel};
 
 pub trait JobRepository {
     async fn get_tx(&self) -> Result<sqlx::PgTransaction, Err>;
-    async fn create_job<'a>(&self, tx: &mut Transaction<'a, Postgres>, req: JobModel) -> Result<i64, Err>;
     async fn update_job<'a>(&self, tx: &mut Transaction<'a, Postgres>, req: UpdateJobStatusModel) -> Result<i64, Err>;
 }
 

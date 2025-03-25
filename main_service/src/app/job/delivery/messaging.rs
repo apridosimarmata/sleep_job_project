@@ -1,34 +1,34 @@
-use std::{pin::Pin, sync::{Arc}};
+use std::{pin::Pin, sync::Arc};
 
+use common_lib::message::message::JobUpdate;
 use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
-use tokio::sync::Mutex;
-use crate::{app::job::usecase::job::JobWorkerUsecaseImpl, domain::usecase::job::JobWorkerUsecase, infrastructure::messaging::messaging::{Messaging, MessagingError}, main};
-use common_lib::message::message::JobCreationRequest;
+use tokio::{spawn, sync::Mutex};
 
+use crate::{domain::{misc::broadcast_channel::JobProggressBroadcaster, usecase::{job::{JobUsecase, JobUsecaseImpl}, usecases::UsecasesWrapper}}, infrastructure::messaging::messaging::MessagingError};
 
 pub trait JobMessagingHandler  {
-    async fn listen(&self) ->  Result<(), MessagingError>;
+    async fn listen(&self) -> Result<(), MessagingError>;
 }
 
 pub struct JobMessagingHandlerImpl {
     conn_arc: Arc<Mutex<Connection>>,
-    job_worker_usecase: Arc<JobWorkerUsecaseImpl>,
+    usecases:Arc<UsecasesWrapper>,
 }
 
 impl JobMessagingHandlerImpl {
-    pub fn new(conn_arc: Arc<Mutex<Connection>>, usecase: Arc<JobWorkerUsecaseImpl>) -> Self {
-        JobMessagingHandlerImpl { conn_arc: conn_arc, job_worker_usecase: usecase}
+    pub fn new(conn_arc: Arc<Mutex<Connection>>, usecases :Arc<UsecasesWrapper>) -> Self {
+        JobMessagingHandlerImpl { conn_arc: conn_arc, usecases:usecases}
     }
 }
 
-impl JobMessagingHandler for JobMessagingHandlerImpl {
+impl  JobMessagingHandler for JobMessagingHandlerImpl {
     async fn listen(&self) -> Result<(), MessagingError> {
         let conn = self.conn_arc.lock().await;
 
         let channel = conn.create_channel().await.map_err(MessagingError::LapinError).unwrap();
         drop(conn);
         let res = channel.basic_consume(
-            "jobs_queue",
+            "jobs_progress_queue",
             "test",
             BasicConsumeOptions::default(),
             FieldTable::default(),
@@ -39,7 +39,7 @@ impl JobMessagingHandler for JobMessagingHandlerImpl {
 
         let c = res.unwrap();
         let delegation = JobConsumer{
-            usecase: self.job_worker_usecase.clone()
+            usecase: Arc::new(self.usecases.job_usecases.clone())
         };
         c.set_delegate(delegation);
 
@@ -47,27 +47,25 @@ impl JobMessagingHandler for JobMessagingHandlerImpl {
     }
 }
 
-
-pub struct JobConsumer{
-    usecase:Arc<JobWorkerUsecaseImpl>,
+pub struct JobConsumer {
+    usecase:Arc<JobUsecaseImpl>,
 }
 
 #[async_trait::async_trait]
-impl <'a> ConsumerDelegate for JobConsumer{
+impl  ConsumerDelegate for JobConsumer{
     fn on_new_delivery(&self, delivery_result: DeliveryResult) -> Pin<Box<dyn Future<Output = ()> + Send>> {
         let usecase_clone = self.usecase.clone();
+
         Box::pin(async move {
             match delivery_result {
                 Ok(Some(delivery)) => {
                     let payload = String::from_utf8_lossy(&delivery.data);
-                    dbg!(payload.clone());
-                    let req:Result<JobCreationRequest, serde_json::Error> = serde_json::from_str(format!("{}", payload).as_str());
+                    let string_payload = format!("{}", payload);
+                    let req:Result<JobUpdate, serde_json::Error> = serde_json::from_str(string_payload.as_str());
+                    let x = req.is_err();
 
-                    let result = usecase_clone.consume_job_request(req.unwrap()).await;
-                    match result {
-                        Ok(_) => delivery.ack(lapin::options::BasicAckOptions::default()).await.expect("ack"),
-                        Err(_) => delivery.nack(lapin::options::BasicNackOptions::default()).await.expect("nack")
-                    }                    
+                    let _ = usecase_clone.consume_job_update(req.unwrap()).await;
+                    delivery.ack(lapin::options::BasicAckOptions::default()).await.expect("ack");                 
                 }
                 Ok(None) => println!("Consumer ended"),
                 Err(e) => eprintln!("Delivery error: {}", e),

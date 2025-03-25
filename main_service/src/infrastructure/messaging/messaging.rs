@@ -5,7 +5,6 @@ use thiserror::Error;
 use lapin::{Connection, ConnectionProperties, options::*, types::FieldTable, BasicProperties, ExchangeKind};
 use tokio_executor_trait::Tokio;
 use crate::infrastructure::messaging::channel_pool::ChannelPool;
-use crate::infrastructure::messaging::consumer::Consumer;
 
 use super::channel_pool::ChannelPoolI;
 
@@ -28,14 +27,13 @@ pub enum MessagingError {
 #[async_trait]
 pub trait MessagingI {
     async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError>;
-    async fn consume(&self, queue: &str) -> Result<(), MessagingError>;
     async fn create_exchange(&self, name: &str) -> Result<(), MessagingError>;
     async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>;
 }
 
 pub struct Messaging {
     channel_pool: ChannelPool,
-    conn : Arc<Mutex<Connection>>,
+    pub conn : Arc<Mutex<Connection>>,
 }
 
 impl Messaging {
@@ -107,12 +105,6 @@ impl MessagingI for Messaging {
             .map_err(MessagingError::LapinError)?;
         
         self.channel_pool.return_channel(channel).await?;
-        Ok(())
-    }
-
-    async fn consume(&self, queue: &str) -> Result<(), MessagingError> {
-        let channel = self.conn.lock().await.create_channel().await.map_err(MessagingError::LapinError).unwrap();
-        channel.basic_consume("my_queue", "test", BasicConsumeOptions::default(), FieldTable::default()).await?.set_delegate(Consumer{});     
         Ok(())
     }
 }

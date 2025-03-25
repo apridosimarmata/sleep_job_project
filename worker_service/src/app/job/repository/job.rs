@@ -19,7 +19,6 @@ impl JobRepository for JobRepositoryImpl {
     }
 
     async fn update_job<'a>(&self, tx: &mut Transaction<'a, Postgres>, req: UpdateJobStatusModel) -> Result<i64, Err> {
-        print!("called {}", req.id);
         let row = sqlx::query!(
             "UPDATE ms_jobs SET
                 status = $1,
@@ -34,32 +33,6 @@ impl JobRepository for JobRepositoryImpl {
 
         match row {
             Ok(_) => Ok(req.id), // Return the inserted ID
-            Err(err) => Err(Err {
-                message: err.to_string(),
-            }),
-        }
-    }
-
-    async fn create_job<'a>(
-        &self,
-        tx: &mut Transaction<'a, Postgres>, // Mutable reference to Transaction
-        req: JobModel,
-    ) -> Result<i64, Err> {
-        let row = sqlx::query!(
-            "INSERT INTO ms_jobs (n, email, created_at, status, finishes_at) 
-             VALUES ($1, $2, $3, $4, $5) 
-             RETURNING id", // Use RETURNING to get the inserted ID
-            req.n,
-            &req.email,
-            req.created_at,
-            &req.status,
-            req.finishes_at
-        )
-        .fetch_one(&mut **tx) // Use tx for transaction safety
-        .await;
-
-        match row {
-            Ok(result) => Ok(result.id), // Return the inserted ID
             Err(err) => Err(Err {
                 message: err.to_string(),
             }),

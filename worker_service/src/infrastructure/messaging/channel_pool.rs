@@ -42,7 +42,6 @@ impl ChannelPoolI for ChannelPool {
         }else if channels_guard.clone().len() < self.max_channel &&  *created_channel_count < self.max_channel {
             /* allows another thread to return channel */
             drop(channels_guard);
-
             let new_channel = conn.clone().lock().await.create_channel().await.unwrap();
             *created_channel_count +=1;
             Ok(new_channel)

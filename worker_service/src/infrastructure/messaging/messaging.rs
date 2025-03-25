@@ -93,6 +93,7 @@ impl MessagingI for Messaging {
 
      async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError> {
         let channel = self.channel_pool.borrow_channel(&self.conn).await.unwrap();
+
         channel.clone().basic_publish(
                 &exchange_name,
                 &routing_key,
