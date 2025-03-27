@@ -16,7 +16,6 @@ impl ConsumerDelegate for Consumer {
                 match delivery {
                     Some(d) => {
                         let payload = String::from_utf8_lossy(&d.data);
-                        println!("Received message: {}", payload);
                         Box::pin(async move {
                             d.ack(BasicAckOptions::default()).await.expect("ack");
                         })

@@ -27,7 +27,7 @@ impl JobRepository for JobRepositoryImpl {
                 created_at = $3,
                 status = $4,
                 finishes_at = $5
-            WHERE id = $6", // Use RETURNING to get the inserted ID
+            WHERE id = $6",
             req.n,
             &req.email,
             req.created_at,
@@ -35,11 +35,11 @@ impl JobRepository for JobRepositoryImpl {
             req.finishes_at,
             req.id
         )
-        .execute(&mut **tx) // Use tx for transaction safety
+        .execute(&mut **tx)
         .await;
 
         match row {
-            Ok(_) => Ok(req.id), // Return the inserted ID
+            Ok(_) => Ok(req.id),
             Err(err) => Err(Err {
                 message: err.to_string(),
             }),
@@ -48,7 +48,7 @@ impl JobRepository for JobRepositoryImpl {
 
     async fn create_job<'a>(
         &self,
-        tx: &mut Transaction<'a, Postgres>, // Mutable reference to Transaction
+        tx: &mut Transaction<'a, Postgres>,
         req: JobModel,
     ) -> Result<i64, Err> {
         let row = sqlx::query!(

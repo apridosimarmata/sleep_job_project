@@ -12,13 +12,20 @@ use crate::domain::model::job_model::JobModel;
 use crate::domain::usecase::job::{JobUsecaseImpl, JobUsecase};
 use crate::domain::repository::job::JobRepository;
 use crate::infrastructure::messaging::messaging::{MessagingError, MessagingI};
+use common_lib::constants::*;
 
 impl <'a> JobUsecase<'a> for JobUsecaseImpl{
     async fn consume_job_update(&self, req: JobUpdate) -> Result<(), MessagingError>{
-        println!("usecase {:?}", req);
-
-
-        let _ =self.progress_channel.tx.send(JobUpdate { job_id: req.job_id, status: req.status });
+        let _ =self.progress_channel.tx.send(JobUpdate { 
+            job_id: req.job_id,
+            status: req.status,
+            created_at:req.created_at,
+            created_by: req.created_by,
+            no_of_sleep: req.no_of_sleep,
+            finished_at:req.finished_at,
+            actual_time:req.actual_time,
+            no_of_progress: req.no_of_progress,
+        });
         Ok(())
     }
 
@@ -29,11 +36,15 @@ impl <'a> JobUsecase<'a> for JobUsecaseImpl{
             loop {
               match progress_subscriber.recv().await {
                     Ok(val) => {
+                        let json_val = serde_json::to_string(&val).map_or_else(|e| {
+                            return Err(e.to_string())
+                        }, Ok);
+
                         let data = Event::Data(
-                            sse::Data::new(format!("job {} updated, status {}", val.job_id, val.status).as_str()),
+                            sse::Data::new(json_val.unwrap()),
                         );
-                        let x = Ok::<_, Infallible>(data);
-                        match clone.send(x).await {
+                        let event = Ok::<_, Infallible>(data);
+                        match clone.send(event).await {
                             Ok(_) => {},
                             Err(_) =>{}
                         } ;
@@ -42,7 +53,7 @@ impl <'a> JobUsecase<'a> for JobUsecaseImpl{
                         println!("got error on job progress subscriber: {}", err.to_string())
                     }
                 };
-                 
+
                 tokio::time::sleep(Duration::from_secs(2)).await;
 
             }
@@ -78,14 +89,29 @@ impl <'a> JobUsecase<'a> for JobUsecaseImpl{
         };
 
         /* publish job request to worker services */
-        let request = JobCreationRequest{
-            job_id:job_id,
-            n: req.n
-        };
-        if let Err(err) = self.messaging.publish(&serde_json::to_string(&request).unwrap(), "jobs_exchange", "jobs.create").await {
-            let _ = tx.rollback().await;
-            return HTTPResponder::InternalServerError(err.to_string());
+        let mut no_of_message = req.n/10;
+        if req.n %10 > 0 {
+            no_of_message+=1;
         }
+        for i in 0..no_of_message{
+            let mut no = 10;
+            if i==(req.n/10) - 1{
+                no = req.n%10;
+                if no == 0 {
+                    no = 10
+                }
+            }
+            let request = JobCreationRequest{
+                job_id:job_id,
+                n: no,
+                target:req.n,
+            };
+            if let Err(err) = self.messaging.publish(&serde_json::to_string(&request).unwrap(), JOBS_EXCHANGE, JOB_TOPIC).await {
+                let _ = tx.rollback().await;
+                return HTTPResponder::InternalServerError(err.to_string());
+            }
+        }
+
 
         /* commit job to db */
         match tx.commit().await {

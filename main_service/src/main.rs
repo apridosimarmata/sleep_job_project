@@ -4,12 +4,16 @@ mod domain;
 mod config;
 
 use std::sync::Arc;
+use actix_files::NamedFile;
+use actix_web::{HttpRequest, Result};
+use std::path::PathBuf;
 
 use actix_web::{web::{self}, App, HttpServer};
 use domain::{misc::broadcast_channel::JobProggressBroadcaster, repository::repositories};
 use app::job::delivery::{http::register_job_routes, messaging::{JobMessagingHandler, JobMessagingHandlerImpl}};
 use infrastructure::messaging::messaging::{MessagingI, Messaging};
 use infrastructure::database::postgre;
+use common_lib::constants::*;
 
 
 #[actix_web::main]
@@ -19,9 +23,10 @@ async fn main() -> std::io::Result<()> {
     /* infras */
     let db = postgre::get_db_conn_pool(configs.postgre_config.url).await.unwrap_or_else(|err| panic!("Database connection error: {:?}", err));
     let messagging = Arc::new(Messaging::new(configs.rabbitmq_config.url).await);
-    let _ = messagging.create_exchange("jobs_exchange").await;
-    let _ = messagging.create_queue("jobs_queue", "jobs_exchange", "jobs.create").await;
-    let _ = messagging.create_queue("jobs_progress_queue", "jobs_exchange", "jobs.status").await;
+
+    let _ = messagging.create_exchange(JOBS_EXCHANGE).await;
+    let _ = messagging.create_queue(JOB_QUEUE, JOBS_EXCHANGE, JOB_TOPIC).await;
+    let _ = messagging.create_queue(JOB_PROGRESS_QUEUE, JOBS_EXCHANGE, JOB_PROGRESS_TOPIC).await;
 
 
     let repos = repositories::RepositoriesWrapper{
@@ -32,16 +37,17 @@ async fn main() -> std::io::Result<()> {
 
     let job_progress_channel: Arc<JobProggressBroadcaster> = Arc::new(JobProggressBroadcaster::new());
     let clone = job_progress_channel.clone();
-    tokio::spawn(async move {
-       let mut new = job_progress_channel.rx.resubscribe();
-       loop {
-            match  new.recv().await {
-                Ok(val) => println!("subscriber {:?}", val),
-                Err(err) => println!("{}", err)
-            }
+
+    // tokio::spawn(async move {
+    //    let mut new = job_progress_channel.rx.resubscribe();
+    //    loop {
+    //         match  new.recv().await {
+    //             Ok(val) => println!("subscriber {:?}", val),
+    //             Err(err) => println!("{}", err)
+    //         }
             
-       }
-    });
+    //    }
+    // });
 
     let usecases = Arc::new(domain::usecase::usecases::UsecasesWrapper {
         job_usecases: domain::usecase::job::JobUsecaseImpl {
@@ -54,7 +60,7 @@ async fn main() -> std::io::Result<()> {
 
     let job_handler = JobMessagingHandlerImpl::new(messagging.conn.clone(), usecases.clone());
     tokio::spawn(async move {
-        job_handler.listen().await;
+        let _ = job_handler.listen().await;
     });
 
     let shared_data = web::Data::new(usecases.clone());
@@ -63,6 +69,7 @@ async fn main() -> std::io::Result<()> {
         App::new()
         .app_data(shared_data.clone())
         .configure(|cfg| register_job_routes(cfg, usecases.clone()))
+        .route("/", web::get().to(index))
     })
     .bind("0.0.0.0:8080")?
     .run()
@@ -70,3 +77,7 @@ async fn main() -> std::io::Result<()> {
 }
 
 
+async fn index(_req: HttpRequest) -> Result<NamedFile> {
+    let path: PathBuf = "./static/index.html".parse().unwrap();
+    Ok(NamedFile::open(path)?)
+}

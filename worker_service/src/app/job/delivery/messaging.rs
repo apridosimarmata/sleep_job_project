@@ -1,10 +1,12 @@
-use std::{pin::Pin, sync::{Arc}};
+use std::{pin::Pin, sync::Arc};
 
+use actix_web::guard;
 use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
 use tokio::sync::Mutex;
+use crate::domain::usecase::usecases::UsecasesWrapper;
 use crate::{app::job::usecase::job::JobWorkerUsecaseImpl, domain::usecase::job::JobWorkerUsecase, infrastructure::messaging::messaging::MessagingError};
 use common_lib::message::message::JobCreationRequest;
-
+use common_lib::constants::{JOB_QUEUE, JOB_TOPIC};
 
 pub trait JobMessagingHandler  {
     async fn listen(&self) ->  Result<(), MessagingError>;
@@ -12,12 +14,12 @@ pub trait JobMessagingHandler  {
 
 pub struct JobMessagingHandlerImpl {
     conn_arc: Arc<Mutex<Connection>>,
-    job_worker_usecase: Arc<JobWorkerUsecaseImpl>,
+    usecases: Arc<UsecasesWrapper>,
 }
 
 impl JobMessagingHandlerImpl {
-    pub fn new(conn_arc: Arc<Mutex<Connection>>, usecase: Arc<JobWorkerUsecaseImpl>) -> Self {
-        JobMessagingHandlerImpl { conn_arc: conn_arc, job_worker_usecase: usecase}
+    pub fn new(conn_arc: Arc<Mutex<Connection>>, usecases: Arc<UsecasesWrapper>) -> Self {
+        JobMessagingHandlerImpl { conn_arc: conn_arc, usecases: usecases}
     }
 }
 
@@ -28,7 +30,7 @@ impl JobMessagingHandler for JobMessagingHandlerImpl {
         let channel = conn.create_channel().await.map_err(MessagingError::LapinError).unwrap();
         drop(conn);
         let res = channel.basic_consume(
-            "jobs_queue",
+            JOB_QUEUE,
             "test",
             BasicConsumeOptions::default(),
             FieldTable::default(),
@@ -39,7 +41,7 @@ impl JobMessagingHandler for JobMessagingHandlerImpl {
 
         let c = res.unwrap();
         let delegation = JobConsumer{
-            usecase: self.job_worker_usecase.clone()
+            usecase: self.usecases.clone(),
         };
         c.set_delegate(delegation);
 
@@ -49,7 +51,7 @@ impl JobMessagingHandler for JobMessagingHandlerImpl {
 
 
 pub struct JobConsumer{
-    usecase:Arc<JobWorkerUsecaseImpl>,
+    usecase:Arc<UsecasesWrapper>,
 }
 
 #[async_trait::async_trait]
@@ -63,7 +65,10 @@ impl <'a> ConsumerDelegate for JobConsumer{
                     dbg!(payload.clone());
                     let req:Result<JobCreationRequest, serde_json::Error> = serde_json::from_str(format!("{}", payload).as_str());
 
-                    let result = usecase_clone.consume_job_request(req.unwrap()).await;
+                    let mut guard = usecase_clone.job_usecases.lock().await;
+                    let result = guard.consume_job_request(req.unwrap()).await;
+                    println!("should be dropped");
+                    drop(guard);
                     match result {
                         Ok(_) => delivery.ack(lapin::options::BasicAckOptions::default()).await.expect("ack"),
                         Err(_) => delivery.nack(lapin::options::BasicNackOptions::default()).await.expect("nack")

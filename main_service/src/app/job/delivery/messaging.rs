@@ -1,6 +1,6 @@
 use std::{pin::Pin, sync::Arc};
 
-use common_lib::message::message::JobUpdate;
+use common_lib::{constants::{JOB_PROGRESS_QUEUE, JOB_PROGRESS_TOPIC}, message::message::JobUpdate};
 use lapin::{message::DeliveryResult, options::BasicConsumeOptions, types::FieldTable, Connection, ConsumerDelegate};
 use tokio::sync::Mutex;
 
@@ -28,7 +28,7 @@ impl  JobMessagingHandler for JobMessagingHandlerImpl {
         let channel = conn.create_channel().await.map_err(MessagingError::LapinError).unwrap();
         drop(conn);
         let res = channel.basic_consume(
-            "jobs_progress_queue",
+            JOB_PROGRESS_QUEUE,
             "test",
             BasicConsumeOptions::default(),
             FieldTable::default(),

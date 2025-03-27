@@ -10,12 +10,12 @@ use super::channel_pool::ChannelPoolI;
 
 #[derive(Error, Debug, Clone)]
 pub enum MessagingError {
-    #[error("Connection error: {0}")]
-    ConnectionError(String),
-    #[error("Channel error: {0}")]
-    ChannelError(String),   
-    #[error("Publish error: {0}")]
-    PublishError(String),
+    // #[error("Connection error: {0}")]
+    // ConnectionError(String),
+    // #[error("Channel error: {0}")]
+    // ChannelError(String),   
+    // #[error("Publish error: {0}")]
+    // PublishError(String),
     #[error("Consume error: {0}")]
     ConsumeError(String),
     #[error("Other error: {0}")]
@@ -27,8 +27,8 @@ pub enum MessagingError {
 #[async_trait]
 pub trait MessagingI {
     async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError>;
-    async fn create_exchange(&self, name: &str) -> Result<(), MessagingError>;
-    async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>;
+    // async fn create_exchange(&self, name: &str) -> Result<(), MessagingError>;
+    // async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>;
 }
 
 pub struct Messaging {
@@ -52,45 +52,6 @@ impl Messaging {
 
 #[async_trait]
 impl MessagingI for Messaging {
-    async fn create_exchange(&self, name: &str) -> Result<(), MessagingError> {  
-        let channel: lapin::Channel = self
-        .channel_pool
-        .borrow_channel(&mut self.conn.clone()).await.map_err(|err| {err})?;
-    
-        let _ = channel
-        .exchange_declare(
-            &name,
-            ExchangeKind::Topic,
-            ExchangeDeclareOptions::default(),
-            FieldTable::default(),
-        )
-        .await
-        .map_err(MessagingError::LapinError)?;
-
-        self.channel_pool.return_channel(channel).await?;
-        Ok(())
-    }
-
-    async fn create_queue(&self, name: &str, bind_to: &str, routing_key: &str ) -> Result<(), MessagingError>{
-        let channel: lapin::Channel = self.channel_pool.borrow_channel(&mut self.conn.clone()).await.map_err(|err| {err})?;
-        let _ = channel.queue_declare(&name, QueueDeclareOptions::default(), FieldTable::default()).await.map_err(|err| {err});
-
-        let _ =channel
-        .queue_bind(
-            &name,
-            &bind_to,
-            &routing_key,
-            QueueBindOptions::default(),
-            FieldTable::default(),
-        )
-        .await
-        .map_err(MessagingError::LapinError)?;
-
-        self.channel_pool.return_channel(channel).await?;
-        Ok(())
-    }
-
-
      async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError> {
         let channel = self.channel_pool.borrow_channel(&self.conn).await.unwrap();
 

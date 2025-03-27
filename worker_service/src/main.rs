@@ -3,7 +3,8 @@ mod app;
 mod domain;
 mod config;
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc};
 
 use app::job::delivery::messaging::{JobMessagingHandler, JobMessagingHandlerImpl};
 use app::job::usecase::job::JobWorkerUsecaseImpl;
@@ -11,6 +12,7 @@ use domain::repository::job::JobRepositoryImpl;
 use domain::repository::repositories::{RepositoriesWrapper};
 use domain::usecase::usecases::UsecasesWrapper;
 use tokio::signal;
+use tokio::sync::Mutex;
 use infrastructure::messaging::messaging::Messaging;
 use infrastructure::database::postgre;
 
@@ -29,11 +31,18 @@ async fn main() -> std::io::Result<()> {
         },
     });
 
+    let progress_map:Mutex<HashMap<i64, i64>> = Mutex::new(HashMap::new());
+
+    let job_usecase =Mutex::new(JobWorkerUsecaseImpl{
+        repositories: repos.clone(),
+        messaging: messaging.clone(),
+        job_progesses: progress_map,
+    });
     let usecases = Arc::new(UsecasesWrapper {
-        job_usecases: JobWorkerUsecaseImpl { repositories: repos.clone(),  messaging: messaging.clone()}
+        job_usecases: job_usecase
     });
 
-    let job_handler = JobMessagingHandlerImpl::new(messaging.conn.clone(), Arc::new(usecases.job_usecases.clone()));
+    let job_handler = JobMessagingHandlerImpl::new(messaging.conn.clone(), usecases.clone());
     let _ = job_handler.listen().await;
 
     signal::ctrl_c().await.expect("Failed to listen for Ctrl+C");

@@ -10,16 +10,16 @@ use super::channel_pool::ChannelPoolI;
 
 #[derive(Error, Debug, Clone)]
 pub enum MessagingError {
-    #[error("Connection error: {0}")]
-    ConnectionError(String),
-    #[error("Channel error: {0}")]
-    ChannelError(String),   
-    #[error("Publish error: {0}")]
-    PublishError(String),
-    #[error("Consume error: {0}")]
-    ConsumeError(String),
-    #[error("Other error: {0}")]
-    Other(String),
+    // #[error("Connection error: {0}")]
+    // ConnectionError(String),
+    // #[error("Channel error: {0}")]
+    // ChannelError(String),   
+    // #[error("Publish error: {0}")]
+    // PublishError(String),
+    // #[error("Consume error: {0}")]
+    // ConsumeError(String),
+    // #[error("Other error: {0}")]
+    // Other(String),
     #[error(transparent)]
     LapinError(#[from] lapin::Error),
 }
@@ -93,7 +93,6 @@ impl MessagingI for Messaging {
 
      async fn publish(&self, message: &str, exchange_name: &str, routing_key: &str) -> Result<(), MessagingError> {
         let channel = self.channel_pool.borrow_channel(&self.conn).await.unwrap();
-        println!("publish to exchange {} routing key {}", exchange_name, routing_key);
         channel.clone().basic_publish(
                 &exchange_name,
                 &routing_key,
