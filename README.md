@@ -1,3 +1,3 @@
 ### Explanation of the Project
 
-[Efficient Rust Event Broadcasting: A Practical Guide](https://www.linkedin.com/feed/update/urn:li:activity:7310933876443344896/)
+[Horbo.rs: Implementing Binary Protocol in Telemetry](https://www.linkedin.com/pulse/horbors-implementing-binary-protocol-telemetry-imam-aprido-simarmata-i5nec)
