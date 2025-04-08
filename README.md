@@ -1,3 +1,3 @@
 ### Explanation of the Project
 
-[Horbo.rs: Implementing Binary Protocol in Telemetry](https://www.linkedin.com/pulse/horbors-implementing-binary-protocol-telemetry-imam-aprido-simarmata-i5nec)
+[Efficient Rust Event Broadcasting: A Practical Guide](https://www.linkedin.com/pulse/efficient-rust-event-broadcasting-practical-guide-simarmata-dxodc/)
